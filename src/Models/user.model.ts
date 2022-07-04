@@ -23,15 +23,31 @@ const userSchema = new mongoose.Schema({
     minLength: [4, "Password should not be greater than 4 characters"],
     select: false,
   },
+  // profile: {
+  //   fileName: {
+  //     type: String,
+  //     required: true,
+  //   },
+  //   fileSize: {
+  //     type: String,
+  //     required: true,
+  //   },
+  //   public_id: {
+  //     type: String,
+  //     required: true,
+  //     default: "userImage/tzsmxrevyes1xsuyujlk",
+  //   },
+  //   url: {
+  //     type: String,
+  //     required: true,
+  //     default:
+  //       "https://res.cloudinary.com/dm3gs2s0h/image/upload/v1650136405/userImage/tzsmxrevyes1xsuyujlk.png",
+  //   },
+  // },
   role: {
     type: String,
     default: "user",
   },
-
-  avatar: {
-    type: String,
-  },
-
   verified: {
     type: Boolean,
     default: "false"
@@ -56,7 +72,7 @@ const userSchema = new mongoose.Schema({
 
   profile: {
     type: String,
-    default:"https://img.favpng.com/2/12/12/computer-icons-portable-network-graphics-user-profile-avatar-png-favpng-L1ihcbxsHbnBKBvjjfBMFGbb7.jpg"
+    default: "https://img.favpng.com/2/12/12/computer-icons-portable-network-graphics-user-profile-avatar-png-favpng-L1ihcbxsHbnBKBvjjfBMFGbb7.jpg"
   },
   createdAt: {
     type: Date,

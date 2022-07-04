@@ -4,7 +4,7 @@ export default interface userModelInterface extends Document {
     name: string,
     email: string
     password: string,
-    avatar: {
+    profile: {
         public_id: string,
         url: string,
     },
