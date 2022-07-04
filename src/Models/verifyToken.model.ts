@@ -1,9 +1,8 @@
 import mongoose from "mongoose";
-const Schema = mongoose.Schema;
 
-const tokenSchema = new Schema({
+const tokenSchema = new mongoose.Schema({
     userId: {
-        type: Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: "user",
         required: true,
     },
@@ -11,6 +10,9 @@ const tokenSchema = new Schema({
         type: String,
         required: true,
     },
+    otp: { type: String },
+    createdAt: { type: Date, default: Date.now }, // 20 minutes
+    expiresAt: { type: Date, expires: 1200 },
 });
 
 let tokenModel = mongoose.model("token", tokenSchema);

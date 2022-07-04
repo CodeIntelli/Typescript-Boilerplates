@@ -1,7 +1,9 @@
 import { NextFunction, Request, Response } from "express";
+import Joi from "joi";
 import { userModel } from "../Models";
-import { ErrorHandler, SendEmail, SendToken } from "../Utils";
+import { ErrorHandler, SendEmail, SendToken, CheckMongoId, SuccessHandler } from "../Utils";
 import { getSignedUrl, uploadFile } from "../Utils/AWSUpload"
+import cloudinary from "cloudinary";
 
 let NAMESPACE = "";
 const userController = {
@@ -9,27 +11,72 @@ const userController = {
     NAMESPACE = "Registration";
     res.status(200).json({ "message": "Your Controller Connected" })
   },
+
+  // [ + ] GET USER DETAILS
   async getUserDetails(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log(req)
       //@ts-ignore
       const user = await userModel.findById(req.user.id);
-      res.status(200).json({ success: true, user });
+      // @ts-ignore
+      if (user.status == "Deactivate") {
+        next(
+          new ErrorHandler(
+            "It Seem's You have deleted Your Account Please Check Your Mail For More Details",
+            422
+          )
+        );
+        return SuccessHandler(200, "", "User Account Deactivate", res);
+      }
+      SuccessHandler(200, user, "User Details Display Successfully", res);
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
     }
   },
+
+
+  // [ + ] GET ALL USER DETAIL LOGIC
   async getAllUserDetails(req: Request, res: Response, next: NextFunction) {
     try {
-      const users = await userModel.find();
-      res.status(200).json({ success: true, users });
+      const users = await userModel.find(
+        { __v: 0 },
+        { __v: 0, createdAt: 0 }
+      ).sort({ createdAt: -1 });
+      SuccessHandler(200, users, "User Details Display Successfully", res);
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
     }
   },
-  // if authenticated
-  async updatePassword(req: Request, res: Response, next: NextFunction) {
+
+  // [ + ] UPDATE USER PASSWORD
+  async changePassword(req: Request, res: Response, next: NextFunction) {
     try {
+      const UserValidation = Joi.object({
+        oldPassword: Joi.string().required().messages({
+          "string.base": `User Name should be a type of 'text'`,
+          "string.empty": `User Name cannot be an empty field`,
+          "string.min": `User Name should have a minimum length of {3}`,
+          "any.required": `User Name is a required field`,
+        }),
+        newPassword: Joi.string()
+          .pattern(new RegExp("^[a-zA-Z0-9]{3,30}$"))
+          .required(),
+        confirmPassword: Joi.ref("password"),
+      });
+      const { error } = UserValidation.validate(req.body);
+      if (error) {
+        return next(error);
+      }
+
+      if (req.body.newPassword || req.body.confirmPassword) {
+        if (req.body.newPassword !== req.body.confirmPassword) {
+          return next(
+            ErrorHandler.unAuthorized(
+              "Confirm Password & Password Must Be Same"
+            )
+          );
+        }
+      }
+
       // @ts-ignore
       const user = await userModel.findById(req.user.id).select("+password");
       // @ts-ignore
@@ -37,26 +84,27 @@ const userController = {
         req.body.oldPassword
       );
       if (!isPasswordMatched) {
-        return next(new ErrorHandler("Old Password Is Incorrect", 400));
+        return next(ErrorHandler.notFound("Old Password Is Incorrect"));
       }
 
-      if (req.body.newPassword !== req.body.confirmPassword) {
-        return next(new ErrorHandler("Password Doesn't match", 400));
-      }
       //@ts-ignore
-
       user.password = req.body.newPassword;
       //@ts-ignore
       await user.save();
-      SendToken(user, 200, res);
-      res.status(200).json({ success: true, user });
+      SendToken(user, 200, res, "password Change");
+      SuccessHandler(200, user, "Password Change Successfully", res);
     } catch (error: any) {
-      return new ErrorHandler(error, 500);
+      return next(ErrorHandler.serverError(error));
     }
   },
-  // get single user - admin
+
+  // [ + ] GET SINGLE USER LOGIC
   async getSingleUser(req: Request, res: Response, next: NextFunction) {
     try {
+      const testId = CheckMongoId(req.params.id);
+      if (!testId) {
+        return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
+      }
       const user = await userModel.findById(req.params.id);
 
       if (!user) {
@@ -74,52 +122,125 @@ const userController = {
     }
   },
 
+  // [ + ] UPDATE USER ROLE LOGIC
   async updateUserRole(req: Request, res: Response, next: NextFunction) {
+    const testId = CheckMongoId(req.params.id);
+    if (!testId) {
+      return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
+    }
+    const UserValidation = Joi.object({
+      name: Joi.string().trim().min(3).max(30).required().messages({
+        "string.base": `User Name should be a type of 'text'`,
+        "string.empty": `User Name cannot be an empty field`,
+        "string.min": `User Name should have a minimum length of {3}`,
+        "any.required": `User Name is a required field`,
+      }),
+      email: Joi.string().email().trim().required().messages({
+        "string.base": `User Email should be a type of 'text'`,
+        "string.empty": `User Email cannot be an empty field`,
+        "any.required": `User Email is a required field`,
+      }),
+      role: Joi.string().required(),
+    });
+    const { error } = UserValidation.validate(req.body);
+    if (error) {
+      return next(error);
+    }
     try {
       const newUserData = {
         name: req.body.name,
         email: req.body.email,
-        role: req.body.role,
+        role: req.body.role || "user",
       };
 
-      await userModel.findByIdAndUpdate(req.params.id, newUserData, {
-        new: true,
-        runValidators: true,
-        useFindAndModify: false,
-      });
+      const userData: any = await userModel.findById(req.params.id);
+      if (userData.name !== req.body.name) {
+        return next(new ErrorHandler("You Can't Change The User Name", 400));
+      }
+      if (userData.email !== req.body.email) {
+        return next(new ErrorHandler("You Can't Change The User Email", 400));
+      }
+      if (userData.status != "Active") {
+        return next(
+          new ErrorHandler(
+            "This user is not active user, you only change the active user role",
+            400
+          )
+        );
+      }
+      if (userData.role == req.body.role) {
+        return next(
+          new ErrorHandler(
+            "It's Seems Like You Are Not Changing the User Role",
+            400
+          )
+        );
+      }
 
-      res.status(200).json({
-        success: true,
-      });
+      let updatedData = await userModel.findByIdAndUpdate(
+        req.params.id,
+        newUserData,
+        {
+          new: true,
+          runValidators: true,
+          useFindAndModify: false,
+        }
+      );
+
+      SuccessHandler(200, updatedData, "User Role Updated", res);
     } catch (error: any) {
       return new ErrorHandler(error, 500);
     }
   },
 
+  // [ + ] UPDATE USER DETAIL LOGIC
   async updateUserDetails(req: Request, res: Response, next: NextFunction) {
     try {
+      const testId = CheckMongoId(req.params.id);
+      if (!testId) {
+        return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
+      }
+      const UserValidation = Joi.object({
+        name: Joi.string().trim().min(3).max(30).messages({
+          "string.base": `User Name should be a type of 'text'`,
+          "string.min": `User Name should have a minimum length of {3}`,
+        }),
+        email: Joi.string().email().trim().messages({
+          "string.base": `User Email should be a type of 'text'`,
+        }),
+        profile_img: Joi.string(),
+      });
+      const { error } = UserValidation.validate(req.body);
+      if (error) {
+        return next(error);
+      }
+      if (req.body.email) {
+        const userEmailCheck = await userModel.exists({
+          email: req.body.email,
+        });
+        if (userEmailCheck) {
+          return next(new ErrorHandler("This email is already taken", 409));
+        }
+      }
+
       const newUserData = {
         name: req.body.name,
         email: req.body.email,
       };
-      if (req.body.avatar !== "") {
-        //@ts-ignore
+      if (req.body.profile !== "" && req.body.profile !== undefined) {
+        // @ts-ignore
         const user = await userModel.findById(req.user.id);
-
-        //@ts-ignore
-        const imageId = user.avatar.public_id;
-
-        //@ts-ignore
+        // @ts-ignore
+        const imageId = user.profile.public_id;
         await cloudinary.v2.uploader.destroy(imageId);
 
-        //@ts-ignore
-        const myCloud = await cloudinary.v2.uploader.upload(req.body.avatar, {
-          folder: "avatars",
+        const myCloud = await cloudinary.v2.uploader.upload(req.body.profile, {
+          folder: "profile",
           width: 150,
           crop: "scale",
         });
-        //@ts-ignore
-        newUserData.avatar = {
+        // @ts-ignore
+        newUserData.profile = {
           public_id: myCloud.public_id,
           url: myCloud.secure_url,
         };
@@ -141,8 +262,13 @@ const userController = {
     }
   },
 
+  // [ + ] Delete User - Admin
   async deleteUser(req: Request, res: Response, next: NextFunction) {
     try {
+      const testId = CheckMongoId(req.params.id);
+      if (!testId) {
+        return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
+      }
       const user = await userModel.findById(req.params.id);
 
       if (!user) {
@@ -199,6 +325,98 @@ const userController = {
       })
     } catch (err) {
       new ErrorHandler(err, 500)
+    }
+  },
+
+  // [ + ] DELETE USER LOGIC
+  async deactivateAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      // @ts-ignore
+      const user = await userModel.findById(req.user.id);
+
+      if (!user) {
+        return next(
+          // @ts-ignore
+          new ErrorHandler(`User does not exist with Id: ${req.user.id}`, 400)
+        );
+      }
+      // @ts-ignore
+      let userStatus = user.status;
+
+      let DeactivatedUser = {
+        status: "Deactivate",
+      };
+
+      let updatedUser = await userModel.findByIdAndUpdate(
+        req.params.id,
+        DeactivatedUser,
+        {
+          new: true,
+          runValidators: true,
+          useFindAndModify: false,
+        }
+      );
+
+      let message = `We are so sorry mail here after user delete account permenantly`;
+      const afterDeleteMail = await SendEmail({
+        email: user.email,
+        subject: `Delete Account Permenantly`,
+        message,
+      });
+      if (!afterDeleteMail) {
+        return next(
+          new ErrorHandler(
+            "Something Error Occurred Please Try After Some Time",
+            422
+          )
+        );
+      }
+      res.status(200).json({
+        success: true,
+        updatedUser,
+        message: "User Account Removed Successfully",
+      });
+    } catch (error: any) {
+      return next(ErrorHandler.serverError(error));
+    }
+  },
+
+  // [ + ] BLOCK USER  BY ADMIN LOGIC
+  async blockUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const testId = CheckMongoId(req.params.id);
+      if (!testId) {
+        return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
+      }
+      const user = await userModel.findById(req.params.id);
+
+      if (!user) {
+        return next(ErrorHandler.notFound(`User Not Found`));
+      }
+      // @ts-ignore
+      let userStatus = user.status;
+
+      let DeactivatedUser = {
+        status: "Blocked",
+      };
+
+      let updatedUser = await userModel.findByIdAndUpdate(
+        req.params.id,
+        DeactivatedUser,
+        {
+          new: true,
+          runValidators: true,
+          useFindAndModify: false,
+        }
+      );
+
+      res.status(200).json({
+        success: true,
+        updatedUser,
+        message: "User Blocked Successfully By Admin",
+      });
+    } catch (error: any) {
+      return next(ErrorHandler.serverError(error));
     }
   }
 };

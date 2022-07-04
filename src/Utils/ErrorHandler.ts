@@ -1,10 +1,10 @@
 class ErrorHandler extends Error {
   statusCode: any;
   constructor(message:any, statusCode:any) {
-    super(message);
+    super();
     this.message = message;
     this.statusCode = statusCode;
-    Error.captureStackTrace(this, this.constructor);
+    // Error.captureStackTrace(this, this.constructor);
   }
   //   here we are creating static method because we dont need to create object to call a class it call automatically
   static alreadyExist(message:any) {

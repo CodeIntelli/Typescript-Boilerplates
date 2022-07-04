@@ -1,18 +1,18 @@
 import { NextFunction, Request, Response } from "express";
 import { userModel, tokenModel } from "../Models";
 import Joi from "joi";
-import { ErrorHandler, SendEmail, SendToken } from "../Utils";
+import { ErrorHandler, SendEmail, SendToken, SuccessHandler } from "../Utils";
 import { FRONTEND_URL, LOGIN_URL } from "../../Config";
 import crypto from "crypto";
+import bcrypt from "bcrypt";
 import Logger from "../../Config/Logger";
 let NAMESPACE = "";
 const authorizationController = {
+  // [ + ] REGISTRATION LOGIC
   async registration(req: Request, res: Response, next: NextFunction) {
-    NAMESPACE = "Registration";
+
     try {
-
       // ~ validation start
-
       // create schema object
       const schema = Joi.object({
         name: Joi.string().min(4).max(30).required().messages({
@@ -21,7 +21,7 @@ const authorizationController = {
           "string.min": `Name should have a minimum length of {4} and maximum length of {30}`,
           "any.required": `Name is a required field`,
         }),
-        email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: ['com','in'] } }).required(),
+        email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: ['com', 'in'] } }).required(),
         password: Joi.string().min(4).max(8).pattern(new RegExp('^[a-zA-Z0-9]{4,20}$')).required(),
         confirmPassword: Joi.ref('password'),
         verified: Joi.boolean().default(false),
@@ -39,47 +39,67 @@ const authorizationController = {
         return next(new ErrorHandler(`Validation error: ${error.details.map(x => x.message).join(', ')}`, 500))
       }
       // ~ validation end
-      else {
-        const { name, email, password } = req.body;
-      
-        const user = await userModel.create({
-          name: name,
-          email,
-          password,
 
-        });
-        let token = await new tokenModel({
-          userId: user._id,
-          token: crypto.randomBytes(20).toString("hex")
-        }).save();
-
-        const message = `${FRONTEND_URL}/${user._id}/verify/${token.token}`;
-
-        const sendVerifyMail = await SendEmail({
-          email: user.email,
-          subject: `${user.name} verification link`,
-          message,
-        });
-        if (!sendVerifyMail) {
+      const { name, email, password } = req.body;
+      if (req.body.password) {
+        if (req.body.password !== req.body.confirmPassword) {
           return next(
-            new ErrorHandler(
-              'Something Error Occurred Please Try After Some Time',
-              422
+            ErrorHandler.unAuthorized(
+              "Confirm Password & Password Must Be Same"
             )
           );
         }
-        res.status(200).json({
-          success: "Pending",
-          message: `Email sent to ${user.email} successfully please verify your email to reference link`,
-        });
-        // sendToken(user, 201, res);
       }
+      try {
+        const exist = await userModel.exists({ email: req.body.email });
+        if (exist) {
+          return next(ErrorHandler.alreadyExist("This email is already taken"));
+        }
+      } catch (err) {
+        return next(err);
+      }
+
+      const user = await userModel.create({
+        name,
+        email,
+        password,
+
+      });
+      // [ - ] old code
+      // let token = await new tokenModel({
+      //   userId: user._id,
+      //   token: crypto.randomBytes(20).toString("hex")
+      // }).save();
+
+      // const message = `${FRONTEND_URL}/${user._id}/verify/${token.token}`;
+
+      // const sendVerifyMail = await SendEmail({
+      //   email: user.email,
+      //   subject: `${user.name} verification link`,
+      //   message,
+      // });
+      // if (!sendVerifyMail) {
+      //   return next(
+      //     new ErrorHandler(
+      //       'Something Error Occurred Please Try After Some Time',
+      //       422
+      //     )
+      //   );
+      // }
+      // res.status(200).json({
+      //   success: "Pending",
+      //   message: `Email sent to ${user.email} successfully please verify your email to reference link`,
+      // });
+
+      SendToken(user, 201, res, "Account Created Successfully");
+
     } catch (error: any) {
 
       return next(new ErrorHandler(error, 500));
     }
   },
 
+  // [ + ] verifyemail logic
   async verifyEmail(req: Request, res: Response, next: NextFunction) {
     try {
       const user = await userModel.findOne({ _id: req.params.id });
@@ -112,46 +132,129 @@ const authorizationController = {
     }
   },
 
+  // [ + ] LOGIN USER LOGIC
+
   async login(req: Request, res: Response, next: NextFunction) {
     NAMESPACE = "Login";
     try {
-      const { email, password } = req.body;
-      if (!email || !password) {
-        return next(new ErrorHandler("Please Enter Email & Password", 400));
+      const LoginSchema = Joi.object({
+        email: Joi.string().email().trim().required().messages({
+          "string.base": `User Email should be a type of 'text'`,
+          "string.empty": `User Email cannot be an empty field`,
+          "any.required": `User Email is a required field`,
+        }),
+        password: Joi.string()
+          .pattern(new RegExp("^[a-zA-Z0-9#?!@$%^&*-]{8,30}$"))
+          .required(),
+        userIp: Joi.string().default("0.0.0.0"),
+        userLocation: Joi.string().default("Some Location"),
+      });
+      const { error } = LoginSchema.validate(req.body);
+      if (error) {
+        return next(error);
       }
-      let user = await userModel
+
+      const { email, password } = req.body;
+
+      const user = await userModel
         .findOne({ email: email })
         .select("+password");
 
       if (!user) {
-        return next(new ErrorHandler("Invalid Email and password", 400));
+        return next(ErrorHandler.wrongCredentials("Invalid Email and password"));
       }
       const isPasswordMatched = await user.comparePassword(password);
       if (!isPasswordMatched) {
-        return next(new ErrorHandler("Invalid Email and password", 400));
+        return next(ErrorHandler.wrongCredentials("Invalid Email and password"));
       }
       if (!user.verified) {
-        return next(new ErrorHandler('please verify your email address', 400));
+        return next(ErrorHandler.wrongCredentials('please verify your email address'));
       }
-      const message = `login succesfully set your profile ${FRONTEND_URL}/profile`;
-      user = await userModel
-        .findOne({ email: email })
-        .select("-password");
-      // const token = user.getJWTToken();
-      // res.json({mesaage:message})
-      SendToken(user, 200, res);
+
+
+      if (user.status === "Deactivate") {
+        let message = `To Reactivate Your Account Please Fill this form`;
+        const sendActivateAccountInfo = await SendEmail({
+          email: user.email,
+          subject: `Reactivate Your Account`,
+          message,
+        });
+        if (!sendActivateAccountInfo) {
+          return next(
+            ErrorHandler.serverError(
+              "Something Error Occurred Please Try After Some Time"
+            )
+          );
+        }
+        return next(
+          ErrorHandler.notFound(
+            "It Seem's You have deleted Your Account Please Check Your Mail For More Details"
+          )
+        );
+      }
+
+      if (user.status === "Blocked") {
+        let message = `Administrator Have Blocked Your Account Because Some Inappropriate Activity Has Done From Your Account`;
+        const sendActivateAccountInfo = await SendEmail({
+          email: user.email,
+          subject: `Terms & Conditions`,
+          message,
+        });
+        if (!sendActivateAccountInfo) {
+          return next(
+            ErrorHandler.serverError(
+              "Something Error Occurred Please Try After Some Time"
+            )
+          );
+        }
+        return next(
+          ErrorHandler.notFound(
+            "It Seem's Administrator have Blocked Your Account Please Check Your Mail For More Details"
+          )
+        );
+      }
+      // [ - ] old code
+      // const message = `login succesfully set your profile ${FRONTEND_URL}/profile`;
+
+      const message = `Someone Is Login From Your Account at User IP:- ${req.socket.remoteAddress} Location:"User Location Here" ${user.userLocation}`
+      const AccountLogin = await SendEmail({
+        email: user.email,
+        subject: `Login From Your Account`,
+        message,
+      });
+      if (!AccountLogin) {
+        return next(
+          ErrorHandler.serverError(
+            "Something Error Occurred Please Try After Some Time"
+          )
+        );
+      }
+      SendToken(user, 200, res, "Login Successfully");
     } catch (error: any) {
-      console.log(error)
-      return next(new ErrorHandler(error, 500));
+      return next(ErrorHandler.serverError("Something Error Occurred Please Try After Some Time"));
     }
   },
 
+  // [ + ] FORGOT PASSWORD USER LOGIC
   async forgotPassword(req: Request, res: Response, next: NextFunction) {
     NAMESPACE = "Forgot Password";
+    const forgotPasswordSchema = Joi.object({
+      email: Joi.string().email().trim().required().messages({
+        "string.base": `User Email should be a type of 'text'`,
+        "string.empty": `User Email cannot be an empty field`,
+        "any.required": `User Email is a required field`,
+      }),
+      userIp: Joi.string().default("0.0.0.0"),
+      userLocation: Joi.string().default("Some Location"),
+    });
+    const { error } = forgotPasswordSchema.validate(req.body);
+    if (error) {
+      return next(error);
+    }
+
     const user = await userModel.findOne({ email: req.body.email });
     if (!user) {
-      return next(new ErrorHandler("User Not Found", 404));
-      // return res.status(404).json({msg:"user not found"});
+      return next(ErrorHandler.notFound("User Not Found"));
     }
     const resetToken = user.getResetPasswordToken();
     await user.save({ validateBeforeSave: false });
@@ -163,7 +266,7 @@ const authorizationController = {
     try {
       await SendEmail({
         email: user.email,
-        subject: `${user.name} Password Recovery`,
+        subject: `Password Recovery Email`,
         message,
       });
       Logger.info(NAMESPACE, `${message}`);
@@ -175,12 +278,39 @@ const authorizationController = {
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
-      return next(new ErrorHandler(error.message, 500));
+      return next(ErrorHandler.serverError(error.message));
     }
   },
+
+  // [ + ] RESET PASSWORD USER LOGIC
   async passwordReset(req: Request, res: Response, next: NextFunction) {
     NAMESPACE = "Password Reset";
     try {
+      const ResetSchema = Joi.object({
+        password: Joi.string()
+          .pattern(new RegExp("^[a-zA-Z0-9#?!@$%^&*-]{8,30}$"))
+          .required(),
+        // confirmPassword: Joi.ref("password"),
+        // For Custom Message we are using this
+        confirmPassword: Joi.string().required(),
+        userIp: Joi.string().default("0.0.0.0"),
+        userLocation: Joi.string().default("Some Location"),
+      });
+      const { error } = ResetSchema.validate(req.body);
+      if (error) {
+        return next(error);
+      }
+
+      if (req.body.password || req.body.confirmPassword) {
+        if (req.body.password !== req.body.confirmPassword) {
+          return next(
+            ErrorHandler.unAuthorized(
+              "Confirm Password & Password Must Be Same"
+            )
+          );
+        }
+      }
+
       const resetPasswordToken = crypto
         .createHash("sha256")
         .update(req.params.token)
@@ -188,7 +318,7 @@ const authorizationController = {
       const user = await userModel.findOne({
         resetPasswordToken,
         resetPasswordExpire: { $gt: Date.now() },
-      });
+      }).select("+password");
       if (!user) {
         return next(
           new ErrorHandler(
@@ -198,18 +328,34 @@ const authorizationController = {
         );
       }
 
-      if (req.body.password !== req.body.confirmPassword) {
-        return next(new ErrorHandler("Password doesn't match", 400));
+      if (req.body.password) {
+        let newPassword = req.body.password;
+        let result = await bcrypt.hash(newPassword, 10);
+        let samePassword = await bcrypt.compare(result, user.password);
+        if (samePassword) {
+          return next(
+            ErrorHandler.alreadyExist(
+              "You Can't use old password, please enter new password"
+            )
+          );
+        }
       }
       user.password = req.body.password;
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
       await user.save();
-      SendToken(user, 200, res);
+      SuccessHandler(
+        200,
+        user,
+        "Your Password is Reset Successfully.Now, Please Login",
+        res
+      );
     } catch (error: any) {
       return next(new ErrorHandler(error, 500));
     }
   },
+
+  // [ + ] LOGOUT LOGIC
   async logout(req: Request, res: Response, next: NextFunction) {
     NAMESPACE = "Logout";
     try {

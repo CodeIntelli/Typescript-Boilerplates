@@ -1,15 +1,16 @@
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
 import { userController } from "../Controller";
-import { isAuthenticatedUser, authorizationRoles,Upload }  from "../Middleware/index";
-
+import { isAuthenticatedUser, authorizationRoles, Upload } from "../Middleware/index";
 const userRoutes = express.Router();
+// [ + ]After Login this url is used for user
+
 
 userRoutes.get("/profile", isAuthenticatedUser, userController.getUserDetails);
 userRoutes.get("/getProfle/:id", isAuthenticatedUser, userController.getProfile);
 userRoutes.put(
   "/changePassword",
   isAuthenticatedUser,
-  userController.updatePassword
+  userController.changePassword
 );
 
 userRoutes.put(
@@ -17,11 +18,26 @@ userRoutes.put(
   isAuthenticatedUser,
   userController.updateUserDetails
 );
-userRoutes.put("/setProfile", isAuthenticatedUser, Upload.single('profile'), userController.setProfile);
 
-// admin
+userRoutes.put(
+  "/deactivate",
+  isAuthenticatedUser,
+  userController.deactivateAccount
+);
+
+// userRoutes.post(
+//   "/profile_image",
+//   isAuthenticatedUser,
+//   Upload.single("profile_img"),
+//   userController.uploadProfileImage
+// );
+
+// [ - ] old code
+// userRoutes.put("/setProfile", isAuthenticatedUser, Upload.single('profile'), userController.setProfile);
+
+// [ + ] Admin Credentials
 userRoutes.get(
-  "/details",
+  "/admin/user",
   isAuthenticatedUser,
   authorizationRoles("admin"),
   userController.getAllUserDetails
@@ -45,5 +61,11 @@ userRoutes.delete(
   userController.deleteUser
 );
 
+userRoutes.put(
+  "/admin/user/block/:id",
+  isAuthenticatedUser,
+  authorizationRoles("admin"),
+  userController.blockUser
+);
 
 export default userRoutes;

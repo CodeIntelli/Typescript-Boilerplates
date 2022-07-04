@@ -1,9 +1,42 @@
+import { DEBUG_MODE } from "../../Config"
+import { ValidationError } from "joi";
 import { NextFunction, Request, Response } from "express";
+import consola from "consola";
 import { ErrorHandler } from "../Utils";
 
-const errorDetails = (error:any, req:Request, res:Response, next:NextFunction) => {
-  error.statusCode = error.statusCode || 500;
-  error.message = error.message || "Internal Server Error";
+const errorDetails = (error: any, req: Request, res: Response, next: NextFunction) => {
+  let statusCode = 500
+  let errdata = {
+    success: false,
+    code: statusCode,
+    data: [],
+    message: "INTERNAL SERVER ERROR",
+    // this is good for development not for production
+    ...(DEBUG_MODE === "true" && { originalError: error.message }),
+  };
+
+  //   it only tell us the object we can get is of what object or class
+  if (error instanceof ValidationError) {
+    statusCode = 422;
+    errdata = {
+      success: false,
+      code: statusCode,
+      data: [],
+      message: error.message,
+    };
+    consola.error(error.message);
+  }
+
+  if (error instanceof ErrorHandler) {
+    statusCode = error.statusCode;
+    errdata = {
+      success: false,
+      code: statusCode,
+      data: [],
+      message: error.message,
+    };
+    consola.error(error.message);
+  }
 
   // Wrong Mongodb ID Error
   if (error.name === "CastError") {
@@ -28,12 +61,15 @@ const errorDetails = (error:any, req:Request, res:Response, next:NextFunction) =
     const message = `Json Web Token is Expired, try again`;
     error = new ErrorHandler(message, 400);
   }
-  console.log(error);
-  res.status(error.statusCode).json({
-    success: false,
-    error: error,
-    message:error.message
-  });
+  // consola.log(error);
+  // res.status(error.statusCode).json({
+  //   success: false,
+  //   error: error,
+  //   message: error.message
+  // });
+
+
+  return res.status(statusCode).json(errdata);
 };
 
 export default errorDetails;

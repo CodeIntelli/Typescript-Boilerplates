@@ -2,6 +2,7 @@ require("dotenv").config({ path: "./config.env" });
 
 export const {
   PORT,
+  DEBUG_MODE,
   DB_URL,
   JWT_SECRET,
   JWT_EXPIRE,
@@ -11,6 +12,7 @@ export const {
   SMTP_HOST,
   SMTP_PORT,
   SMTP_PASS,
+  SMS_API_KEY,
   FRONTEND_URL,
   CLOUD_NAME,
   CLOUD_API_KEY,
@@ -21,4 +23,7 @@ export const {
   AWS_ACCESS_KEY,
   AWS_SECRET_ACCESS_KEY,
   AWS_REGION,
-  ENC_DEC_KEY} = process.env;
+  ENC_DEC_KEY,
+  VONAGE_API_KEY,
+  VONAGE_API_SECRET
+} = process.env;

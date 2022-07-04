@@ -1626,6 +1626,11 @@
     "write-file-atomic" "^3.0.0"
     "xdg-basedir" "^4.0.0"
 
+"consola@^2.15.3":
+  "integrity" "sha512-9vAdYbHj6x2fLKC4+oPH0kFzY/orMZyG2Aj+kNylHxKGJ/Ed4dpNyAQYwJOdqO4zdM7XpVHmyejQDcQHrnuXbw=="
+  "resolved" "https://registry.npmjs.org/consola/-/consola-2.15.3.tgz"
+  "version" "2.15.3"
+
 "console-control-strings@^1.0.0", "console-control-strings@^1.1.0":
   "integrity" "sha512-ty/fTekppD2fIwRvnZAVdeOiGd1c7YXEixbgJTNzqcxJWKQnjJ/V1bNEEE6hygpM3WjwHFUVK6HTjWSzV4a8sQ=="
   "resolved" "https://registry.npmjs.org/console-control-strings/-/console-control-strings-1.1.0.tgz"
