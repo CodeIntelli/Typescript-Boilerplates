@@ -22,7 +22,9 @@ const authorizationController = {
           "any.required": `Name is a required field`,
         }),
         email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: ['com', 'in'] } }).required(),
-        password: Joi.string().min(4).max(8).pattern(new RegExp('^[a-zA-Z0-9]{4,20}$')).required(),
+        password: Joi.string().min(4)
+          .pattern(new RegExp("^[a-zA-Z0-9#?!@$%^&*-]{8,30}$"))
+        .required(),
         confirmPassword: Joi.ref('password'),
         verified: Joi.boolean().default(false),
         role: Joi.string().default("user"),
@@ -167,10 +169,6 @@ const authorizationController = {
       if (!isPasswordMatched) {
         return next(ErrorHandler.wrongCredentials("Invalid Email and password"));
       }
-      if (!user.verified) {
-        return next(ErrorHandler.wrongCredentials('please verify your email address'));
-      }
-
 
       if (user.status === "Deactivate") {
         let message = `To Reactivate Your Account Please Fill this form`;

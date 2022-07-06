@@ -1,7 +1,8 @@
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
 import { authorizationController } from "../Controller";
 const authenticationRoutes = express.Router();
 
+// [ + ] Authenticate Route
 authenticationRoutes.post('/register', authorizationController.registration);
 authenticationRoutes.get('/verifymail/:id/:token', authorizationController.verifyEmail);
 authenticationRoutes.post('/login', authorizationController.login);

@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import Joi from "joi";
 import { userModel } from "../Models";
-import { ErrorHandler, SendEmail, SendToken, CheckMongoId, SuccessHandler } from "../Utils";
+import { ErrorHandler, SendEmail, SendToken, CheckMongoId, SuccessHandler,Cloudinary } from "../Utils";
 import { getSignedUrl, uploadFile } from "../Utils/AWSUpload"
 import cloudinary from "cloudinary";
 
@@ -47,6 +47,36 @@ const userController = {
     }
   },
 
+  // [ + ] Upload Profile Picture
+  async uploadProfileImage(req: Request, res: Response, next: NextFunction) {
+    try {
+      // @ts-ignore
+      var user = await userModel.findById(req.user.id);
+      // @ts-ignore
+      req.file.path = req.file.path.replace("\\", "/");
+      
+      // @ts-ignore
+      let myCloud = await Cloudinary.UploadFile(req.file.path, `${user.id}/profile`);
+      
+      // @ts-ignore
+      let fileSize = await Cloudinary.fileSizeConversion(req.file.size);
+      console.log(user?.profile)
+      // @ts-ignore
+      user.profile.fileName = req.file.filename;
+      // @ts-ignore
+      user.profile.fileSize = fileSize;
+      // @ts-ignore
+      user.profile.public_id = myCloud.public_id;
+      // @ts-ignore
+      user.profile.url = myCloud.url;
+      // @ts-ignore
+      user.save();
+      SuccessHandler(200, user, "User Profile Uploaded Successfully", res);
+    } catch (error:any) {
+      return next(ErrorHandler.serverError(error));
+    }
+  },
+
   // [ + ] UPDATE USER PASSWORD
   async changePassword(req: Request, res: Response, next: NextFunction) {
     try {
@@ -60,7 +90,7 @@ const userController = {
         newPassword: Joi.string()
           .pattern(new RegExp("^[a-zA-Z0-9]{3,30}$"))
           .required(),
-        confirmPassword: Joi.ref("password"),
+        confirmPassword: Joi.ref("newPassword"),
       });
       const { error } = UserValidation.validate(req.body);
       if (error) {
@@ -129,13 +159,13 @@ const userController = {
       return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
     }
     const UserValidation = Joi.object({
-      name: Joi.string().trim().min(3).max(30).required().messages({
+      name: Joi.string().trim().min(3).max(30).messages({
         "string.base": `User Name should be a type of 'text'`,
         "string.empty": `User Name cannot be an empty field`,
         "string.min": `User Name should have a minimum length of {3}`,
         "any.required": `User Name is a required field`,
       }),
-      email: Joi.string().email().trim().required().messages({
+      email: Joi.string().email().trim().messages({
         "string.base": `User Email should be a type of 'text'`,
         "string.empty": `User Email cannot be an empty field`,
         "any.required": `User Email is a required field`,
@@ -330,6 +360,7 @@ const userController = {
 
   // [ + ] DELETE USER LOGIC
   async deactivateAccount(req: Request, res: Response, next: NextFunction) {
+
     try {
       // @ts-ignore
       const user = await userModel.findById(req.user.id);
@@ -342,13 +373,12 @@ const userController = {
       }
       // @ts-ignore
       let userStatus = user.status;
-
+      
       let DeactivatedUser = {
         status: "Deactivate",
       };
-
       let updatedUser = await userModel.findByIdAndUpdate(
-        req.params.id,
+        user.id,
         DeactivatedUser,
         {
           new: true,
@@ -356,13 +386,13 @@ const userController = {
           useFindAndModify: false,
         }
       );
-
       let message = `We are so sorry mail here after user delete account permenantly`;
       const afterDeleteMail = await SendEmail({
         email: user.email,
         subject: `Delete Account Permenantly`,
         message,
       });
+     
       if (!afterDeleteMail) {
         return next(
           new ErrorHandler(

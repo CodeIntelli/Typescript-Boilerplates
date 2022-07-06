@@ -6,13 +6,18 @@ const userRoutes = express.Router();
 
 
 userRoutes.get("/profile", isAuthenticatedUser, userController.getUserDetails);
-userRoutes.get("/getProfle/:id", isAuthenticatedUser, userController.getProfile);
+// userRoutes.get("/getProfle/:id", isAuthenticatedUser, userController.getProfile);
 userRoutes.put(
   "/changePassword",
   isAuthenticatedUser,
   userController.changePassword
 );
-
+userRoutes.post(
+  "/upload_profile",
+  isAuthenticatedUser,
+  Upload.single("profile"),
+  userController.uploadProfileImage
+);
 userRoutes.put(
   "/edit_profile",
   isAuthenticatedUser,
@@ -25,12 +30,6 @@ userRoutes.put(
   userController.deactivateAccount
 );
 
-// userRoutes.post(
-//   "/profile_image",
-//   isAuthenticatedUser,
-//   Upload.single("profile_img"),
-//   userController.uploadProfileImage
-// );
 
 // [ - ] old code
 // userRoutes.put("/setProfile", isAuthenticatedUser, Upload.single('profile'), userController.setProfile);

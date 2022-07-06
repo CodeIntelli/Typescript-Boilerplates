@@ -5,6 +5,8 @@ export default interface userModelInterface extends Document {
     email: string
     password: string,
     profile: {
+        fileName: string,
+        fileSize: string,
         public_id: string,
         url: string,
     },
@@ -19,4 +21,4 @@ export default interface userModelInterface extends Document {
     getJWTToken: any,
     getResetPasswordToken: any
 
-} 
+}
