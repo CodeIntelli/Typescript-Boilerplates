@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { userModel, tokenModel } from "../Models";
-import Joi from "joi";
-import { ErrorHandler, SendEmail, SendToken, SuccessHandler } from "../Utils";
+import Joi, { any, number } from "joi";
+import { CheckMongoId, ErrorHandler, GenerateOTP, SendEmail, SendToken, SuccessHandler } from "../Utils";
 import { FRONTEND_URL, LOGIN_URL } from "../../Config";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
@@ -24,7 +24,7 @@ const authorizationController = {
         email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: ['com', 'in'] } }).required(),
         password: Joi.string().min(4)
           .pattern(new RegExp("^[a-zA-Z0-9#?!@$%^&*-]{8,30}$"))
-        .required(),
+          .required(),
         confirmPassword: Joi.ref('password'),
         verified: Joi.boolean().default(false),
         role: Joi.string().default("user"),
@@ -67,75 +67,48 @@ const authorizationController = {
         password,
 
       });
-      // [ - ] old code
-      // let token = await new tokenModel({
-      //   userId: user._id,
-      //   token: crypto.randomBytes(20).toString("hex")
-      // }).save();
+
+      let token = await tokenModel.create({
+        userId: user._id,
+        // @ts-ignore
+        otp: await GenerateOTP()
+      });
 
       // const message = `${FRONTEND_URL}/${user._id}/verify/${token.token}`;
 
-      // const sendVerifyMail = await SendEmail({
-      //   email: user.email,
-      //   subject: `${user.name} verification link`,
-      //   message,
-      // });
-      // if (!sendVerifyMail) {
-      //   return next(
-      //     new ErrorHandler(
-      //       'Something Error Occurred Please Try After Some Time',
-      //       422
-      //     )
-      //   );
-      // }
-      // res.status(200).json({
-      //   success: "Pending",
-      //   message: `Email sent to ${user.email} successfully please verify your email to reference link`,
-      // });
-
-      SendToken(user, 201, res, "Account Created Successfully");
+      const sendVerifyMail = await SendEmail({
+        email: user.email,
+        subject: `Account verification link`,
+        templateName: "verifyEmailOTP",
+        context: {
+          username: user.name,
+          otp: token.otp,
+        },
+      });
+      if (!sendVerifyMail) {
+        return next(
+          new ErrorHandler(
+            'Something Error Occurred Please Try After Some Time',
+            422
+          )
+        );
+      }
+      res.status(201).json({
+        status: "Pending",
+        code: 201,
+        data: user,
+        message:
+          "An Email send to your account please verify your email address",
+      });
+      // SendToken(user, 201, res, "Account Created Successfully");
 
     } catch (error: any) {
 
-      return next(new ErrorHandler(error, 500));
-    }
-  },
-
-  // [ + ] verifyemail logic
-  async verifyEmail(req: Request, res: Response, next: NextFunction) {
-    try {
-      const user = await userModel.findOne({ _id: req.params.id });
-      if (!user) {
-        return next(new ErrorHandler('Invalid Verification Link', 400));
-      }
-      const token = await tokenModel.findOne({
-        userId: user._id,
-        token: req.params.token,
-      });
-      if (!token) {
-        return next(new ErrorHandler('Invalid Verification Link', 400));
-      }
-
-      await userModel.findByIdAndUpdate(
-        req.params.id,
-        {
-          verified: true,
-        },
-        { new: true, runValidators: true, useFindAndModify: false }
-      );
-      await token.remove();
-
-      res.status(200).send({
-        success: true,
-        message: `Email Verification Successfully You can login now ${LOGIN_URL}`,
-      });
-    } catch (error) {
-      return next(new ErrorHandler(error, 500));
+      return next(ErrorHandler.serverError(error));
     }
   },
 
   // [ + ] LOGIN USER LOGIC
-
   async login(req: Request, res: Response, next: NextFunction) {
     NAMESPACE = "Login";
     try {
@@ -165,17 +138,27 @@ const authorizationController = {
       if (!user) {
         return next(ErrorHandler.wrongCredentials("Invalid Email and password"));
       }
+
+      if (!user.verified) {
+        return next(
+          ErrorHandler.unAuthorized("please verify your email address")
+        );
+      }
+
       const isPasswordMatched = await user.comparePassword(password);
       if (!isPasswordMatched) {
         return next(ErrorHandler.wrongCredentials("Invalid Email and password"));
       }
 
       if (user.status === "Deactivate") {
-        let message = `To Reactivate Your Account Please Fill this form`;
+       
         const sendActivateAccountInfo = await SendEmail({
           email: user.email,
           subject: `Reactivate Your Account`,
-          message,
+          templateName: "deactivateAccount",
+          context: {
+            username: user.name,
+          },
         });
         if (!sendActivateAccountInfo) {
           return next(
@@ -184,6 +167,7 @@ const authorizationController = {
             )
           );
         }
+       
         return next(
           ErrorHandler.notFound(
             "It Seem's You have deleted Your Account Please Check Your Mail For More Details"
@@ -211,14 +195,19 @@ const authorizationController = {
           )
         );
       }
-      // [ - ] old code
-      // const message = `login succesfully set your profile ${FRONTEND_URL}/profile`;
 
-      const message = `Someone Is Login From Your Account at User IP:- ${req.socket.remoteAddress} Location:"User Location Here" ${user.userLocation}`
+      let current = new Date();
+      let currenttimeDate = `${current.toLocaleTimeString()} - ${current.toLocaleDateString()}`;
       const AccountLogin = await SendEmail({
         email: user.email,
-        subject: `Login From Your Account`,
-        message,
+        subject: `Someone Is Login From Your Account`,
+        templateName: "loginAccount",
+        context: {
+          username: user.email,
+          UserIP: `Ip:- ${req.socket.remoteAddress}`,
+          userLocation: `Location:- ${user.userLocation}`,
+          time: currenttimeDate,
+        },
       });
       if (!AccountLogin) {
         return next(
@@ -230,6 +219,116 @@ const authorizationController = {
       SendToken(user, 200, res, "Login Successfully");
     } catch (error: any) {
       return next(ErrorHandler.serverError("Something Error Occurred Please Try After Some Time"));
+    }
+  },
+
+  // [ + ] VERIFICATION EMAIL LOGIC
+  async verifyEmail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const testId = CheckMongoId(req.body.id);
+    
+      if (!testId) {
+        return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
+      }
+      const user = await userModel.findOne({ _id: req.body.id });
+      
+      if (!user) {
+        return next(ErrorHandler.unAuthorized("Invalid Verification Link"));
+      }
+      if (user.verified) {
+        return next(ErrorHandler.unAuthorized("User Is Already Verified"));
+      }
+
+      const token = await tokenModel.findOne({
+        userId: req.body.id,
+        otp: req.body.otp,
+      });
+
+      if (!token) {
+        return next(ErrorHandler.unAuthorized("Invalid Verification Link"));
+      }
+
+      await userModel.findByIdAndUpdate(
+        req.body.id,
+        {
+          verified: true,
+        },
+        { new: true, runValidators: true, useFindAndModify: false }
+      );
+      await token.remove();
+
+      const sendVerifyMail = await SendEmail({
+        email: user.email,
+        subject: `Welcome To Codeintelli`,
+        templateName: "welcomeMail",
+        context: {
+          username: user.name,
+        },
+      });
+      if (!sendVerifyMail) {
+        return next(
+          ErrorHandler.serverError(
+            "Something Error Occurred Please Try After Some Time"
+          )
+        );
+      }
+      SuccessHandler(200, [], "Email Verified Successfully", res);
+    } catch (error: any) {
+      return next(ErrorHandler.serverError(error));
+    }
+  },
+
+  async resendVerifyEmail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const testId = CheckMongoId(req.body.id);
+      if (!testId) {
+        return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
+      }
+      const user = await userModel.findById(req.body.id);
+      // @ts-ignore
+      if (user.verified) {
+        return next(ErrorHandler.unAuthorized("User Is Already Verified"));
+      }
+      // @ts-ignore
+      const tokenremove = await tokenModel.find({ userId: user.id });
+
+      if (tokenremove) {
+        tokenremove.map(async (data) => {
+          return await tokenModel.findByIdAndDelete(data._id);
+        });
+      }
+      const token = await tokenModel.create({
+        // @ts-ignore
+        userId: user.id,
+        // @ts-ignore
+        otp: await GenerateOTP(),
+      });
+
+      const sendVerifyMail = await SendEmail({
+        email: user?.email,
+        subject: `Email Verification OTP`,
+        templateName: "verifyEmailOTP",
+        context: {
+          username: user?.name,
+          otp: token.otp,
+        },
+      });
+      if (!sendVerifyMail) {
+        return next(
+          ErrorHandler.serverError(
+            "Something Error Occurred Please Try After Some Time"
+          )
+        );
+      }
+      // SendToken(user, 201, res);
+      res.status(201).json({
+        status: true,
+        code: 200,
+        data: [],
+        message: "Mail Resend Successfully",
+      });
+    } catch (err: any) {
+      next(ErrorHandler.serverError(err));
     }
   },
 

@@ -8,7 +8,6 @@ const tokenSchema = new mongoose.Schema({
     },
     token: {
         type: String,
-        required: true,
     },
     otp: { type: String },
     createdAt: { type: Date, default: Date.now }, // 20 minutes

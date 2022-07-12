@@ -3,6 +3,7 @@ import { ValidationError } from "joi";
 import { NextFunction, Request, Response } from "express";
 import consola from "consola";
 import { ErrorHandler } from "../Utils";
+import Logger from "../../Config/Logger";
 
 const errorDetails = (error: any, req: Request, res: Response, next: NextFunction) => {
   let statusCode = 500
@@ -14,7 +15,7 @@ const errorDetails = (error: any, req: Request, res: Response, next: NextFunctio
     // this is good for development not for production
     ...(DEBUG_MODE === "true" && { originalError: error.message }),
   };
-
+  Logger.error("ERROR HANDLER", error);
   //   it only tell us the object we can get is of what object or class
   if (error instanceof ValidationError) {
     statusCode = 422;
@@ -24,7 +25,8 @@ const errorDetails = (error: any, req: Request, res: Response, next: NextFunctio
       data: [],
       message: error.message,
     };
-    consola.error(error.message);
+    // @ts-ignore
+    Logger.error("ERROR HANDLER", errdata);
   }
 
   if (error instanceof ErrorHandler) {
@@ -35,7 +37,9 @@ const errorDetails = (error: any, req: Request, res: Response, next: NextFunctio
       data: [],
       message: error.message,
     };
-    consola.error(error.message);
+    // @ts-ignore
+    Logger.error("ERROR HANDLER @@@@@@", statusCode);
+    // consola.error(error.message);
   }
 
   // Wrong Mongodb ID Error

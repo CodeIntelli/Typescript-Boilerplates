@@ -4,8 +4,9 @@ const authenticationRoutes = express.Router();
 
 // [ + ] Authenticate Route
 authenticationRoutes.post('/register', authorizationController.registration);
-authenticationRoutes.get('/verifymail/:id/:token', authorizationController.verifyEmail);
+authenticationRoutes.post('/user/verify', authorizationController.verifyEmail);
 authenticationRoutes.post('/login', authorizationController.login);
+authenticationRoutes.post("/resendVerifyEmail",authorizationController.resendVerifyEmail);
 authenticationRoutes.post('/password/forgot', authorizationController.forgotPassword);
 authenticationRoutes.put('/password/reset/:token', authorizationController.passwordReset);
 authenticationRoutes.get('/logout', authorizationController.logout);

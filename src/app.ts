@@ -9,11 +9,17 @@ import cookieParser from "cookie-parser";
 import bodyParser from "body-parser";
 import cloudinary from "cloudinary";
 import { CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET } from "../Config"
+import consola from "consola";
 const app = express();
 const NAMESPACE = "SERVER";
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+app.use(
+  cors({
+    credentials: true,
+  })
+);
 app.use(cors());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -40,7 +46,6 @@ cloudinary.config({
   api_key: CLOUD_API_KEY,
   api_secret: CLOUD_API_SECRET,
 });
-
 
 let server = app.listen(PORT, () => {
   Logger.info(NAMESPACE, `Server Listing At http://localhost:${PORT}`);

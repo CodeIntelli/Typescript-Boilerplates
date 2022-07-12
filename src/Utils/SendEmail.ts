@@ -7,8 +7,11 @@ import {
   SMTP_PASS,
 } from "../../Config";
 import ErrorHandler from "./ErrorHandler";
+import path from 'path';
 
+import hbs from "nodemailer-express-handlebars";
 const sendEmail = async (options: any) => {
+  
   //   const accessToken = await OAuth2Client.getAccessToken();
   try {
     // let host = SMTP_HOST as any;
@@ -28,15 +31,29 @@ const sendEmail = async (options: any) => {
         rejectUnauthorized: false
       }
     });
+    const handlerbarsOption = {
+      viewEngine: {
+        extName: ".html",
+        partialsDir: path.resolve("./src/Templates"),
+        defaultLayout: false,
+      },
+      viewPath: path.resolve("./src/Templates"),
+      extName: ".handlebars",
+    };
+    // @ts-ignore
+    transporter.use("compile", hbs(handlerbarsOption));
     const mailOptions = {
-      from: user,
+      from: SMTP_MAIL,
       to: options.email,
       subject: options.subject,
-      text: options.message,
+      template: options.templateName,
+      context: options.context,
     };
+
     return await transporter.sendMail(mailOptions);
   } catch (error: any) {
-    return new ErrorHandler(error.message, 500);
+    
+    return ErrorHandler.serverError(error.message);
   }
 
   //   res.status(200).json({ success: true, message: "mail send successfully" });

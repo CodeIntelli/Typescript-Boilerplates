@@ -1,5 +1,5 @@
 import otpGenerator from "otp-generator";
-const GenerateOTP = (length:number, config:any) => {
+const GenerateOTP = (length: number, config: any) => {
     const otpConfig = {
         digits: true,
         lowerCaseAlphabets: false,
