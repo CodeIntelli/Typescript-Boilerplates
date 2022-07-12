@@ -1,6 +1,6 @@
 class ErrorHandler extends Error {
   statusCode: any;
-  constructor(message:any, statusCode:any) {
+  constructor(statusCode: any, message: any) {
     super();
     this.message = message;
     this.statusCode = statusCode;
@@ -14,8 +14,8 @@ class ErrorHandler extends Error {
     return new ErrorHandler(404, message);
   }
 
-  static wrongCredentials(message:any) {
-    return new ErrorHandler(401, (message = "username or password is wrong"));
+  static wrongCredentials(message = "username or password is wrong") {
+    return new ErrorHandler(401, (message));
   }
   // default message or value given to function
   static unAuthorized(message = "unAuthorized") {

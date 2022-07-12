@@ -24,7 +24,7 @@ const authorizationController = {
         email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: ['com', 'in'] } }).required(),
         password: Joi.string().min(4)
           .pattern(new RegExp("^[a-zA-Z0-9#?!@$%^&*-]{8,30}$"))
-        .required(),
+          .required(),
         confirmPassword: Joi.ref('password'),
         verified: Joi.boolean().default(false),
         role: Joi.string().default("user"),
@@ -67,31 +67,6 @@ const authorizationController = {
         password,
 
       });
-      // [ - ] old code
-      // let token = await new tokenModel({
-      //   userId: user._id,
-      //   token: crypto.randomBytes(20).toString("hex")
-      // }).save();
-
-      // const message = `${FRONTEND_URL}/${user._id}/verify/${token.token}`;
-
-      // const sendVerifyMail = await SendEmail({
-      //   email: user.email,
-      //   subject: `${user.name} verification link`,
-      //   message,
-      // });
-      // if (!sendVerifyMail) {
-      //   return next(
-      //     new ErrorHandler(
-      //       'Something Error Occurred Please Try After Some Time',
-      //       422
-      //     )
-      //   );
-      // }
-      // res.status(200).json({
-      //   success: "Pending",
-      //   message: `Email sent to ${user.email} successfully please verify your email to reference link`,
-      // });
 
       SendToken(user, 201, res, "Account Created Successfully");
 
@@ -101,41 +76,8 @@ const authorizationController = {
     }
   },
 
-  // [ + ] verifyemail logic
-  async verifyEmail(req: Request, res: Response, next: NextFunction) {
-    try {
-      const user = await userModel.findOne({ _id: req.params.id });
-      if (!user) {
-        return next(new ErrorHandler('Invalid Verification Link', 400));
-      }
-      const token = await tokenModel.findOne({
-        userId: user._id,
-        token: req.params.token,
-      });
-      if (!token) {
-        return next(new ErrorHandler('Invalid Verification Link', 400));
-      }
-
-      await userModel.findByIdAndUpdate(
-        req.params.id,
-        {
-          verified: true,
-        },
-        { new: true, runValidators: true, useFindAndModify: false }
-      );
-      await token.remove();
-
-      res.status(200).send({
-        success: true,
-        message: `Email Verification Successfully You can login now ${LOGIN_URL}`,
-      });
-    } catch (error) {
-      return next(new ErrorHandler(error, 500));
-    }
-  },
 
   // [ + ] LOGIN USER LOGIC
-
   async login(req: Request, res: Response, next: NextFunction) {
     NAMESPACE = "Login";
     try {
@@ -211,8 +153,6 @@ const authorizationController = {
           )
         );
       }
-      // [ - ] old code
-      // const message = `login succesfully set your profile ${FRONTEND_URL}/profile`;
 
       const message = `Someone Is Login From Your Account at User IP:- ${req.socket.remoteAddress} Location:"User Location Here" ${user.userLocation}`
       const AccountLogin = await SendEmail({
