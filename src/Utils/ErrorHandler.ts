@@ -20,8 +20,8 @@ class ErrorHandler extends Error {
     return new ErrorHandler(400, message);
   }
 
-  static wrongCredentials(message: any) {
-    return new ErrorHandler(401, (message = "username or password is wrong"));
+  static wrongCredentials(message = "username or password is wrong") {
+    return new ErrorHandler(401, (message));
   }
 
   // default message or value given to function

@@ -1,7 +1,6 @@
 import { DEBUG_MODE } from "../../Config"
 import { ValidationError } from "joi";
 import { NextFunction, Request, Response } from "express";
-import consola from "consola";
 import { ErrorHandler } from "../Utils";
 import Logger from "../../Config/Logger";
 
@@ -39,7 +38,6 @@ const errorDetails = (error: any, req: Request, res: Response, next: NextFunctio
     };
     // @ts-ignore
     Logger.error("ERROR HANDLER @@@@@@", statusCode);
-    // consola.error(error.message);
   }
 
   // Wrong Mongodb ID Error
@@ -65,7 +63,6 @@ const errorDetails = (error: any, req: Request, res: Response, next: NextFunctio
     const message = `Json Web Token is Expired, try again`;
     error = new ErrorHandler(message, 400);
   }
-  // consola.log(error);
   // res.status(error.statusCode).json({
   //   success: false,
   //   error: error,

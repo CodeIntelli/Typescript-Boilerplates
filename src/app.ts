@@ -4,12 +4,11 @@ import "./Database";
 import { PORT } from "../Config";
 import { authenticationRoutes, userRoutes } from "./Routes";
 import cors from "cors";
-import errorDetails from "./Middleware/ErrorMiddleware";
+import {errorDetails} from "./Middleware/";
 import cookieParser from "cookie-parser";
 import bodyParser from "body-parser";
 import cloudinary from "cloudinary";
 import { CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET } from "../Config"
-import consola from "consola";
 const app = express();
 const NAMESPACE = "SERVER";
 app.use(express.json());
