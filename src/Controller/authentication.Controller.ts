@@ -70,19 +70,18 @@ const authorizationController = {
 
       let token = await tokenModel.create({
         userId: user._id,
-        // @ts-ignore
-        otp: await GenerateOTP()
+        token: crypto.randomBytes(32).toString("hex"),
       });
 
-      // const message = `${FRONTEND_URL}/${user._id}/verify/${token.token}`;
+      const url = `${FRONTEND_URL}/users/${user._id}/verify/${token.token}`;
 
       const sendVerifyMail = await SendEmail({
         email: user.email,
         subject: `Account verification link`,
-        templateName: "verifyEmailOTP",
+        templateName: "verifyEmail",
         context: {
           username: user.name,
-          otp: token.otp,
+          url: url,
         },
       });
       if (!sendVerifyMail) {
@@ -151,7 +150,6 @@ const authorizationController = {
       }
 
       if (user.status === "Deactivate") {
-       
         const sendActivateAccountInfo = await SendEmail({
           email: user.email,
           subject: `Reactivate Your Account`,
@@ -167,7 +165,7 @@ const authorizationController = {
             )
           );
         }
-       
+
         return next(
           ErrorHandler.notFound(
             "It Seem's You have deleted Your Account Please Check Your Mail For More Details"
@@ -225,13 +223,13 @@ const authorizationController = {
   // [ + ] VERIFICATION EMAIL LOGIC
   async verifyEmail(req: Request, res: Response, next: NextFunction) {
     try {
-      const testId = CheckMongoId(req.body.id);
-    
+      const testId = CheckMongoId(req.params.id);
+
       if (!testId) {
         return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
       }
-      const user = await userModel.findOne({ _id: req.body.id });
-      
+      const user = await userModel.findOne({ _id: req.params.id });
+
       if (!user) {
         return next(ErrorHandler.unAuthorized("Invalid Verification Link"));
       }
@@ -240,8 +238,8 @@ const authorizationController = {
       }
 
       const token = await tokenModel.findOne({
-        userId: req.body.id,
-        otp: req.body.otp,
+        userId: req.params.id,
+        token: req.params.token,
       });
 
       if (!token) {
@@ -249,7 +247,7 @@ const authorizationController = {
       }
 
       await userModel.findByIdAndUpdate(
-        req.body.id,
+        req.params.id,
         {
           verified: true,
         },
@@ -300,17 +298,18 @@ const authorizationController = {
       const token = await tokenModel.create({
         // @ts-ignore
         userId: user.id,
-        // @ts-ignore
-        otp: await GenerateOTP(),
+        token: crypto.randomBytes(32).toString("hex"),
       });
+      // @ts-ignore
+      const url = `${FRONTEND_URL}/users/${user._id}/verify/${token.token}`;
 
       const sendVerifyMail = await SendEmail({
         email: user?.email,
-        subject: `Email Verification OTP`,
-        templateName: "verifyEmailOTP",
+        subject: `Email Verification`,
+        templateName: "verifyEmail",
         context: {
           username: user?.name,
-          otp: token.otp,
+          url: url,
         },
       });
       if (!sendVerifyMail) {

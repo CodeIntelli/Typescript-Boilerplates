@@ -1,11 +1,14 @@
 import cloudinary from "cloudinary";
 import ErrorHandler from './ErrorHandler';
+import fs from "fs";
 const Cloudinary = {
     async UploadFile(file: any, folder: any) {
         const myCloud = await cloudinary.v2.uploader.upload(file, {
-            folder: folder,
-            width: 150,
-            crop: "scale",
+            folder: `normal-boilerplates/${folder}`
+        });
+        fs.unlink(file, (err:any) => {
+            if (err) throw err;
+            // console.log(`${file} was deleted`);
         });
         return {
             public_id: myCloud.public_id,

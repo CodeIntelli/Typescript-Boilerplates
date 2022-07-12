@@ -4,7 +4,7 @@ import "./Database";
 import { PORT } from "../Config";
 import { authenticationRoutes, userRoutes } from "./Routes";
 import cors from "cors";
-import errorDetails from "./Middleware/ErrorMiddleware";
+import {errorDetails} from "./Middleware/";
 import cookieParser from "cookie-parser";
 import bodyParser from "body-parser";
 import cloudinary from "cloudinary";
