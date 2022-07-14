@@ -49,13 +49,14 @@ const uploadFile = (file: any) => {
 
     // @ts-ignore
     const fileStream = fs.createReadStream(file.path);
-    console.log(fileStream)
+
     const uploadParams = {
         Bucket: AWS_BUCKET + `/profile`,
         Body: fileStream,
         // @ts-ignore
         Key: file.filename,
     };
+
     return s3.upload(uploadParams).promise();
 };
 

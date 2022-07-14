@@ -55,7 +55,16 @@ const userController = {
       // @ts-ignore
       const file = req.file;
       const result = await uploadFile(file)
-      
+      // @ts-ignore
+      user.profile.fileName = file.originalname
+      // @ts-ignore
+      user.profile.fileSize = file.size;
+      // @ts-ignore
+      user.profile.public_id = result.Key
+      // @ts-ignore
+      user.profile.url = result.Location
+      // @ts-ignore
+      user.save();
       SuccessHandler(200, user, "User Profile Uploaded Successfully", res);
     } catch (error: any) {
       return next(ErrorHandler.serverError(error));
