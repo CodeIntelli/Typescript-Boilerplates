@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { userModel, tokenModel } from "../Models";
-import Joi, { any, number } from "joi";
-import { CheckMongoId, ErrorHandler, GenerateOTP, SendEmail, SendToken, SuccessHandler } from "../Utils";
-import { FRONTEND_URL, LOGIN_URL } from "../../Config";
+import Joi from "joi";
+import { CheckMongoId, ErrorHandler, GenerateOTP, SendEmail, SendTextMessage, SendToken, SuccessHandler } from "../Utils";
+import { FRONTEND_URL, LOGIN_URL, TWILIO_PHONE_NUMBER } from "../../Config";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import Logger from "../../Config/Logger";
@@ -28,6 +28,7 @@ const authorizationController = {
         confirmPassword: Joi.ref('password'),
         verified: Joi.boolean().default(false),
         role: Joi.string().default("user"),
+        mobileNumber: Joi.number().required(),
         status: Joi.string().default("Active"),
         userIp: Joi.string().default("0.0.0.0"),
         userLocation: Joi.string().default("Some Location"),
@@ -42,7 +43,7 @@ const authorizationController = {
       }
       // ~ validation end
 
-      const { name, email, password } = req.body;
+      const { name, email, password, mobileNumber } = req.body;
       if (req.body.password) {
         if (req.body.password !== req.body.confirmPassword) {
           return next(
@@ -65,39 +66,28 @@ const authorizationController = {
         name,
         email,
         password,
-
+        mobileNumber
       });
 
-      let token = await tokenModel.create({
+      const token = await tokenModel.create({
         userId: user._id,
-        token: crypto.randomBytes(32).toString("hex"),
+        // @ts-ignore
+        otp: await GenerateOTP(),
       });
 
-      const url = `${FRONTEND_URL}/users/${user._id}/verify/${token.token}`;
-
-      const sendVerifyMail = await SendEmail({
-        email: user.email,
-        subject: `Account verification link`,
-        templateName: "verifyEmail",
-        context: {
-          username: user.name,
-          url: url,
-        },
+      const sendMessage = await SendTextMessage({
+        phoneNumber: user.mobileNumber.toString().includes("+91")
+          ? `${user.mobileNumber}`
+          : `+91${user.mobileNumber}`,
+        message: `Please verify your Mobile Number by Using the following OTP ${token.otp} to complete your Sign Up procedures. OTP is valid for 20 minutes.`,
       });
-      if (!sendVerifyMail) {
-        return next(
-          new ErrorHandler(
-            'Something Error Occurred Please Try After Some Time',
-            422
-          )
-        );
-      }
+      // SendToken(user, 201, res);
       res.status(201).json({
         status: "Pending",
         code: 201,
         data: user,
         message:
-          "An Email send to your account please verify your email address",
+          "A Text Message send to your account please verify your Mobile Number",
       });
       // SendToken(user, 201, res, "Account Created Successfully");
 

@@ -12,6 +12,7 @@ export default interface userModelInterface extends Document {
     },
     role: string,
     createdAt: Date,
+    mobileNumber: number,
     resetPasswordToken: any,
     resetPasswordExpire: any,
     verified: any,

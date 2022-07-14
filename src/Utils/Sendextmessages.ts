@@ -14,5 +14,26 @@
 10. app-notify
 
 */
-const SendTextMessage = () => { };
+import {
+    TWILIO_PHONE_NUMBER,
+    TWILIO_AUTH_SID,
+    TWILIO_AUTH_TOKEN,
+} from "../../Config";
+let twilio = require("twilio")(TWILIO_AUTH_SID, TWILIO_AUTH_TOKEN);
+
+const SendTextMessage = (messageContext:any) => {
+    twilio.messages
+        .create({
+            from: TWILIO_PHONE_NUMBER,
+            to: messageContext.phoneNumber,
+            body: messageContext.message,
+        })
+        .then((res:any) => {
+            console.log("message Sent");
+        })
+        .catch((err:any) => {
+            console.error(err);
+        });
+};
+
 export default SendTextMessage;
