@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import Joi from "joi";
 import { userModel } from "../Models";
-import { ErrorHandler, SendEmail, SendToken, CheckMongoId, SuccessHandler,Cloudinary } from "../Utils";
+import { ErrorHandler, SendEmail, SendToken, CheckMongoId, SuccessHandler, Cloudinary } from "../Utils";
 import { getSignedUrl, uploadFile } from "../Utils/AWSUpload"
 import cloudinary from "cloudinary";
 
@@ -53,26 +53,11 @@ const userController = {
       // @ts-ignore
       var user = await userModel.findById(req.user.id);
       // @ts-ignore
-      req.file.path = req.file.path.replace("\\", "/");
+      const file = req.file;
+      const result = await uploadFile(file)
       
-      // @ts-ignore
-      let myCloud = await Cloudinary.UploadFile(req.file.path, `${user.id}/profile`);
-      
-      // @ts-ignore
-      let fileSize = await Cloudinary.fileSizeConversion(req.file.size);
-      console.log(user?.profile)
-      // @ts-ignore
-      user.profile.fileName = req.file.filename;
-      // @ts-ignore
-      user.profile.fileSize = fileSize;
-      // @ts-ignore
-      user.profile.public_id = myCloud.public_id;
-      // @ts-ignore
-      user.profile.url = myCloud.url;
-      // @ts-ignore
-      user.save();
       SuccessHandler(200, user, "User Profile Uploaded Successfully", res);
-    } catch (error:any) {
+    } catch (error: any) {
       return next(ErrorHandler.serverError(error));
     }
   },
@@ -373,7 +358,7 @@ const userController = {
       }
       // @ts-ignore
       let userStatus = user.status;
-      
+
       let DeactivatedUser = {
         status: "Deactivate",
       };
@@ -392,7 +377,7 @@ const userController = {
         subject: `Delete Account Permenantly`,
         message,
       });
-     
+
       if (!afterDeleteMail) {
         return next(
           new ErrorHandler(

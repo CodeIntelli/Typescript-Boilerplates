@@ -49,7 +49,7 @@ const uploadFile = (file: any) => {
 
     // @ts-ignore
     const fileStream = fs.createReadStream(file.path);
-
+    console.log(fileStream)
     const uploadParams = {
         Bucket: AWS_BUCKET + `/profile`,
         Body: fileStream,
@@ -68,7 +68,7 @@ const getFile = (fileKey: any) => {
     // @ts-ignore
     return s3.getObject(downloadParmas).createReadStream();
 };
-  
+
 
 // @Service : GetSignedURL
 const getSignedUrl = async (fileKey: any) => {
@@ -128,4 +128,4 @@ const removeObj = async (bucketName: any, fileKey: any) => {
         console.log("success");
     });
 };
-export { uploadFile, getFile, s3, getSignedUrl, removeFolder,removeObj };
+export { uploadFile, getFile, s3, getSignedUrl, removeFolder, removeObj };

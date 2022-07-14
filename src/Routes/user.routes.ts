@@ -30,10 +30,6 @@ userRoutes.put(
   userController.deactivateAccount
 );
 
-
-// [ - ] old code
-// userRoutes.put("/setProfile", isAuthenticatedUser, Upload.single('profile'), userController.setProfile);
-
 // [ + ] Admin Credentials
 userRoutes.get(
   "/admin/user",

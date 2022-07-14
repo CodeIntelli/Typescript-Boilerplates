@@ -28,7 +28,7 @@ const isAuthenticatedUser = async (req: Request, res: Response, next: NextFuncti
     req.user = await userModel.findById(decodeData.id);
     next();
   } catch (error) {
-    return next(new ErrorHandler(error, 401));
+    return next(new ErrorHandler(401, error));
   }
 };
 
