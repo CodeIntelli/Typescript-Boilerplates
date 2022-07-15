@@ -18,6 +18,8 @@ export default interface userModelInterface extends Document {
     verified: any,
     status: string,
     userLocation: string,
+    reminder: Boolean,
+    twostep: Boolean,
     comparePassword(candidatePassword: string): Promise<boolean>,
     getJWTToken: any,
     getResetPasswordToken: any

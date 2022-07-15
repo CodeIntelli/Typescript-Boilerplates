@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import Joi from "joi";
-import { userModel } from "../Models";
-import { ErrorHandler, SendEmail, SendToken, CheckMongoId, SuccessHandler, Cloudinary, AWSUpload } from "../Utils";
+import { tokenModel, userModel } from "../Models";
+import { ErrorHandler, SendEmail, SendToken, CheckMongoId, SuccessHandler, Cloudinary, AWSUpload, GenerateOTP } from "../Utils";
 import cloudinary from "cloudinary";
 
 let NAMESPACE = "";
@@ -420,6 +420,109 @@ const userController = {
       });
     } catch (error: any) {
       return next(ErrorHandler.serverError(error));
+    }
+  },
+
+  // [ + ] TWOSTEP VERIFICATION OTP LOGIC
+  async verifyOtp(req: Request, res: Response, next: NextFunction) {
+    try {
+      const testId = CheckMongoId(req.params.id);
+
+      if (!testId) {
+        return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
+      }
+      const user = await userModel.findOne({ _id: req.params.id });
+
+      if (!user) {
+        return next(ErrorHandler.unAuthorized("Invalid user"));
+      }
+      if (user.twostep) {
+        return next(ErrorHandler.unAuthorized("User Is Already Verified"));
+      }
+
+      const otp = await tokenModel.findOne({
+        userId: req.params.id,
+        otp: req.body.otp,
+      });
+
+      if (!otp) {
+        return next(ErrorHandler.unAuthorized("Invalid Otp"));
+      }
+
+      await userModel.findByIdAndUpdate(
+        req.params.id,
+        {
+          twostep: true,
+        },
+        { new: true, runValidators: true, useFindAndModify: false }
+      );
+      await otp.remove();
+
+      const sendVerifyMail = await SendEmail({
+        email: user.email,
+        subject: `Welcome To Codeintelli`,
+        templateName: "welcomeMail",
+        context: {
+          username: user.name,
+        },
+      });
+      if (!sendVerifyMail) {
+        return next(
+          ErrorHandler.serverError(
+            "Something Error Occurred Please Try After Some Time"
+          )
+        );
+      }
+      SuccessHandler(200, [], "Your two step verification completed successfully", res);
+    } catch (error: any) {
+      return next(ErrorHandler.serverError(error));
+    }
+  },
+
+  async twoStepVerification(req: Request, res: Response, next: NextFunction) {
+    debugger
+    //@ts-ignore
+    const user = await userModel.findById(req.user.id);
+    // @ts-ignore
+    if (!user) {
+      next(new ErrorHandler("User not Found", 422))
+    }
+  
+    // @ts-ignore
+    if (!user.reminder) {
+      const token = await tokenModel.create({
+        // @ts-ignore
+        userId: user._id,
+        // @ts-ignore
+        otp: await GenerateOTP(),
+      });
+      const sendVerifyMail = await SendEmail({
+        // @ts-ignore
+        email: user.email,
+        subject: `Email Verification OTP`,
+        templateName: "verifyEmailOTP",
+        context: {
+          // @ts-ignore
+          username: user.name,
+          otp: token.otp,
+        },
+      });
+      if (!sendVerifyMail) {
+        return next(
+          ErrorHandler.serverError(
+            "Something Error Occurred Please Try After Some Time"
+          )
+        );
+      }
+      
+      // SendToken(user, 201, res);
+      res.status(201).json({
+        status: "Pending",
+        code: 201,
+        data: user,
+        message:
+          "An Email send to your account please verify your email address",
+      });
     }
   }
 };

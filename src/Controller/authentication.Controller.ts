@@ -210,62 +210,6 @@ const authorizationController = {
     }
   },
 
-  // [ + ] VERIFICATION EMAIL LOGIC
-  async verifyEmail(req: Request, res: Response, next: NextFunction) {
-    try {
-      const testId = CheckMongoId(req.params.id);
-
-      if (!testId) {
-        return next(ErrorHandler.wrongCredentials("Wrong MongoDB Id"));
-      }
-      const user = await userModel.findOne({ _id: req.params.id });
-
-      if (!user) {
-        return next(ErrorHandler.unAuthorized("Invalid Verification Link"));
-      }
-      if (user.verified) {
-        return next(ErrorHandler.unAuthorized("User Is Already Verified"));
-      }
-
-      const token = await tokenModel.findOne({
-        userId: req.params.id,
-        token: req.params.token,
-      });
-
-      if (!token) {
-        return next(ErrorHandler.unAuthorized("Invalid Verification Link"));
-      }
-
-      await userModel.findByIdAndUpdate(
-        req.params.id,
-        {
-          verified: true,
-        },
-        { new: true, runValidators: true, useFindAndModify: false }
-      );
-      await token.remove();
-
-      const sendVerifyMail = await SendEmail({
-        email: user.email,
-        subject: `Welcome To Codeintelli`,
-        templateName: "welcomeMail",
-        context: {
-          username: user.name,
-        },
-      });
-      if (!sendVerifyMail) {
-        return next(
-          ErrorHandler.serverError(
-            "Something Error Occurred Please Try After Some Time"
-          )
-        );
-      }
-      SuccessHandler(200, [], "Email Verified Successfully", res);
-    } catch (error: any) {
-      return next(ErrorHandler.serverError(error));
-    }
-  },
-
   async resendVerifyEmail(req: Request, res: Response, next: NextFunction) {
     try {
       const testId = CheckMongoId(req.body.id);

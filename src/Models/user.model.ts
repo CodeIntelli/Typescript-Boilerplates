@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema({
     },
     fileSize: {
       type: String,
-   
+
     },
     public_id: {
       type: String,
@@ -75,6 +75,17 @@ const userSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+  reminder: {
+    type: Boolean,
+    required: true,
+    default: "true"
+  },
+  twostep: {
+    type: Boolean,
+    required: true,
+    default: "false"
+
   },
   resetPasswordToken: String,
   resetPasswordExpire: Date,

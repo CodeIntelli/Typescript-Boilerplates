@@ -30,6 +30,8 @@ userRoutes.put(
   userController.deactivateAccount
 );
 
+userRoutes.post("/two-step-verification-email", isAuthenticatedUser, userController.twoStepVerification)
+userRoutes.post("/users/verifyOtp/:id", isAuthenticatedUser, userController.verifyOtp);
 // [ + ] Admin Credentials
 userRoutes.get(
   "/admin/user",
