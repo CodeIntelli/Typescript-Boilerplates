@@ -43,90 +43,102 @@ so its better to find user record and better to remove if any record need to rem
 and when we are removing any user we have to remove whole folder of the user 
  */
 
+const awsUpload = {
+    async uploadFile(file: any) {
 
-// @Service: uploadfile
-const uploadFile = (file: any) => {
-
-    // @ts-ignore
-    const fileStream = fs.createReadStream(file.path);
-
-    const uploadParams = {
-        Bucket: AWS_BUCKET + `/profile`,
-        Body: fileStream,
         // @ts-ignore
-        Key: file.filename,
-    };
+        const fileStream = fs.createReadStream(file.path);
 
-    return s3.upload(uploadParams).promise();
-};
+        const uploadParams = {
+            Bucket: AWS_BUCKET + `/profile`,
+            Body: fileStream,
+            // @ts-ignore
+            Key: file.filename,
+        };
 
-// @Service: Read File In Bucket
-const getFile = (fileKey: any) => {
-    const downloadParmas = {
-        Key: fileKey,
-        Bucket: AWS_BUCKET,
-    };
-    // @ts-ignore
-    return s3.getObject(downloadParmas).createReadStream();
-};
+        return s3.upload(uploadParams).promise();
+    },
 
-
-// @Service : GetSignedURL
-const getSignedUrl = async (fileKey: any) => {
-    // console.log(fileKey)
-    const signedUrlExpireSeconds = 18000;
-    try {
-        const url = s3.getSignedUrl("getObject", {
+    // @Service: Read File In Bucket
+    async getFile(fileKey: any) {
+        const downloadParmas = {
+            Key: fileKey,
             Bucket: AWS_BUCKET,
-            Key: `profile/${fileKey}`,
-            Expires: signedUrlExpireSeconds,
-        });
-        return url;
-    } catch (headErr: any) {
-        console.log(headErr);
-        if (headErr.code === "NotFound") {
-            return false;
-        }
-    }
-};
-
-// @Service: Remove Object/Folder Inside Bucket
-
-const removeFolder = async (bucketName: any, folderName: any) => {
-    const listParams = {
-        Bucket: bucketName,
-        Prefix: `${folderName}/`,
-    };
-    console.log(bucketName, `${folderName}/`);
-    const listedObjects = await s3.listObjectsV2(listParams).promise();
-
-    // @ts-ignore
-    if (listedObjects.Contents.length === 0) return;
-
-    const deleteParams = {
-        Bucket: bucketName,
-        Delete: { Objects: [] },
-    };
-
-    // @ts-ignore
-    listedObjects.Contents.forEach(({ Key }) => {
+        };
         // @ts-ignore
-        deleteParams.Delete.Objects.push({ Key });
-    });
+        return s3.getObject(downloadParmas).createReadStream();
+    },
 
-    await s3.deleteObjects(deleteParams).promise();
 
-    if (listedObjects.IsTruncated) await removeObj(bucketName, folderName);
-};
-
-const removeObj = async (bucketName: any, fileKey: any) => {
-    var params = { Bucket: AWS_BUCKET, Key: `images/${fileKey}` };
-    // @ts-ignore
-    return await s3.deleteObject(params, function (err, data) {
-        if (err) {
-            console.log(err);
+    // @Service : GetSignedURL
+    async getSignedUrl(fileKey: any) {
+        // console.log(fileKey)
+        const signedUrlExpireSeconds = 18000;
+        try {
+            const url = s3.getSignedUrl("getObject", {
+                Bucket: AWS_BUCKET,
+                Key: `profile/${fileKey}`,
+                Expires: signedUrlExpireSeconds,
+            });
+            return url;
+        } catch (headErr: any) {
+            console.log(headErr);
+            if (headErr.code === "NotFound") {
+                return false;
+            }
         }
-        console.log("success");
-    });
-};
-export { uploadFile, getFile, s3, getSignedUrl, removeFolder, removeObj };
+    },
+
+    // @Service: Remove Object/Folder Inside Bucket
+
+    // async removeFolder(bucketName: any, folderName: any) {
+    //     const listParams = {
+    //         Bucket: bucketName,
+    //         Prefix: `${folderName}/`,
+    //     };
+    //     console.log(bucketName, `${folderName}/`);
+    //     const listedObjects = await s3.listObjectsV2(listParams).promise();
+
+    //     // @ts-ignore
+    //     if (listedObjects.Contents.length === 0) return;
+
+    //     const deleteParams = {
+    //         Bucket: bucketName,
+    //         Delete: { Objects: [] },
+    //     };
+
+    //     // @ts-ignore
+    //     listedObjects.Contents.forEach(({ Key }) => {
+    //         // @ts-ignore
+    //         deleteParams.Delete.Objects.push({ Key });
+    //     });
+
+    //     await s3.deleteObjects(deleteParams).promise();
+
+    //     if (listedObjects.IsTruncated) await removeObj(bucketName, folderName);
+    // },
+
+    async removeObj(bucketName: any, fileKey: any) {
+        var params = { Bucket: AWS_BUCKET, Key: `images/${fileKey}` };
+        // @ts-ignore
+        return await s3.deleteObject(params, function (err, data) {
+            if (err) {
+                console.log(err);
+            }
+            console.log("success");
+        });
+    },
+
+    async fileSizeConversion(size: any) {
+        if (size == 0) return "0 Bytes";
+        var k = 1000,
+            dm = 2,
+            sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"],
+            i = Math.floor(Math.log(size) / Math.log(k));
+        return parseFloat((size / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+    },
+}
+// @Service: uploadfile
+
+
+export default awsUpload;

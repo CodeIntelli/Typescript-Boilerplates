@@ -1,8 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import Joi from "joi";
 import { userModel } from "../Models";
-import { ErrorHandler, SendEmail, SendToken, CheckMongoId, SuccessHandler, Cloudinary } from "../Utils";
-import { getSignedUrl, uploadFile } from "../Utils/AWSUpload"
+import { ErrorHandler, SendEmail, SendToken, CheckMongoId, SuccessHandler, Cloudinary, AWSUpload } from "../Utils";
 import cloudinary from "cloudinary";
 
 let NAMESPACE = "";
@@ -54,12 +53,13 @@ const userController = {
       var user = await userModel.findById(req.user.id);
       // @ts-ignore
       const file = req.file;
-      const result = await uploadFile(file)
-
+      const result = await AWSUpload.uploadFile(file)
+      // @ts-ignore
+      const fileSize = await AWSUpload.fileSizeConversion(file.size)
       // @ts-ignore
       user.profile.fileName = file.originalname
       // @ts-ignore
-      user.profile.fileSize = file.size;
+      user.profile.fileSize = fileSize;
       // @ts-ignore
       user.profile.public_id = result.key
       // @ts-ignore
@@ -313,14 +313,14 @@ const userController = {
     }
   },
 
+  // [ + ] getsigned url
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log(123456)
       const key = req.params.id;
       if (!key) {
         new ErrorHandler("please provide valid key", 402)
       }
-      const result = await getSignedUrl(key);
+      const result = await AWSUpload.getSignedUrl(key);
       return res.status(200).json({
         success: true,
         message: "User profile fetch Signedurl",
