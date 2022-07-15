@@ -31,6 +31,10 @@ class ErrorHandler extends Error {
   static serverError(message = "Internal Server Error") {
     return new ErrorHandler(500, message);
   }
+
+  static fileFormat(message: any) {
+    return new ErrorHandler(415, message)
+  }
 }
 
 export default ErrorHandler;

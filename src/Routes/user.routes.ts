@@ -6,7 +6,6 @@ const userRoutes = express.Router();
 
 
 userRoutes.get("/profile", isAuthenticatedUser, userController.getUserDetails);
-// userRoutes.get("/getProfle/:id", isAuthenticatedUser, userController.getProfile);
 userRoutes.put(
   "/changePassword",
   isAuthenticatedUser,
@@ -18,6 +17,7 @@ userRoutes.post(
   Upload.single("profile"),
   userController.uploadProfileImage
 );
+userRoutes.get("/getProfle/:id", isAuthenticatedUser, userController.getProfile);
 userRoutes.put(
   "/edit_profile",
   isAuthenticatedUser,

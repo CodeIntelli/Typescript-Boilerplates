@@ -1,7 +1,9 @@
+import { NextFunction } from "express";
 import multer from "multer";
+import { ErrorHandler } from "../Utils";
 
 // * defined filter
-const fileFilter = (req: Request, file: any, cb: any) => {
+const fileFilter = (next: NextFunction, file: any, cb: any) => {
     if (
         file.mimetype === 'image/png' ||
         file.mimetype === 'image/jpg' ||
@@ -15,7 +17,7 @@ const fileFilter = (req: Request, file: any, cb: any) => {
     ) {
         cb(null, true);
     } else {
-        cb(new Error('File format should be PNG,JPG,JPEG,WEBP,SVG,XML,GIF,AVIF & APNG'), false); // if validation failed then generate error
+        return cb(ErrorHandler.fileFormat('File format should be PNG,JPG,JPEG,WEBP,SVG,XML,GIF,AVIF & APNG')); // if validation failed then generate error
     }
 };
 

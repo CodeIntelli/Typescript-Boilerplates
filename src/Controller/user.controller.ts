@@ -55,12 +55,13 @@ const userController = {
       // @ts-ignore
       const file = req.file;
       const result = await uploadFile(file)
+
       // @ts-ignore
       user.profile.fileName = file.originalname
       // @ts-ignore
       user.profile.fileSize = file.size;
       // @ts-ignore
-      user.profile.public_id = result.Key
+      user.profile.public_id = result.key
       // @ts-ignore
       user.profile.url = result.Location
       // @ts-ignore
@@ -312,41 +313,19 @@ const userController = {
     }
   },
 
-  async setProfile(req: Request, res: Response) {
-
-    try {
-      const file = req.file;
-      const result = await uploadFile(file);
-      const profile = {
-        profile: result.Key
-      }
-
-      // @ts-ignore
-      await userModel.findByIdAndUpdate(req.user._id, profile, {
-        new: true,
-        runValidators: true,
-        useFindAndModify: false,
-      });
-      return res.json({
-        filePath: `${result.Key}`,
-        Location: `${result.Location}`
-      });
-    } catch (err) {
-      console.log(err);
-    }
-  },
-
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
+      console.log(123456)
       const key = req.params.id;
       if (!key) {
         new ErrorHandler("please provide valid key", 402)
       }
       const result = await getSignedUrl(key);
-      return res.json({
+      return res.status(200).json({
         success: true,
+        message: "User profile fetch Signedurl",
         data: result
-      })
+      });
     } catch (err) {
       new ErrorHandler(err, 500)
     }
