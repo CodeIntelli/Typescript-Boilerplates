@@ -51,11 +51,19 @@ const userController = {
     try {
       // @ts-ignore
       var user = await userModel.findById(req.user.id);
-      // @ts-ignore
+
+      if (!user) {
+        return next(
+          new ErrorHandler(`User does not exist with Id: ${req.body.id}`, 404)
+        );
+      }
+
       const file = req.file;
       const result = await AWSUpload.uploadFile(file)
       // @ts-ignore
       const fileSize = await AWSUpload.fileSizeConversion(file.size)
+      // @ts-ignore
+      console.log(file.size)
       // @ts-ignore
       user.profile.fileName = file.originalname
       // @ts-ignore

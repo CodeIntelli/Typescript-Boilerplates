@@ -1,6 +1,6 @@
 import express from "express";
 import { userController } from "../Controller";
-import { isAuthenticatedUser, authorizationRoles, Upload } from "../Middleware/index";
+import { isAuthenticatedUser, authorizationRoles, Upload } from "../Middleware/";
 const userRoutes = express.Router();
 // [ + ]After Login this url is used for user
 

@@ -1,9 +1,8 @@
-import { NextFunction } from "express";
 import multer from "multer";
 import { ErrorHandler } from "../Utils";
 
 // * defined filter
-const fileFilter = (next: NextFunction, file: any, cb: any) => {
+const fileFilter = (file: any, cb: any) => {
     if (
         file.mimetype === 'image/png' ||
         file.mimetype === 'image/jpg' ||
@@ -23,9 +22,8 @@ const fileFilter = (next: NextFunction, file: any, cb: any) => {
 
 // *file upload using validation
 const upload = multer({
-    dest: "src/uploads/",
     // @ts-ignore
-    fileFilter: fileFilter
+    fileFilter: fileFilter,
 });
 
 export default upload
